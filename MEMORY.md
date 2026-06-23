@@ -18,10 +18,12 @@
 - Tento repo je **čistě Hlasomat**. Zatím existuje jako **prototyp**
   (`prototype/`) — statický React + in-browser Babel, hlasy simulují boti.
   **Není to produkční kód**, je to vizuální a logická předloha.
-- Před implementací je nutné rozhodnout **otevřené produktové otázky** (sekce 4),
-  hlavne: **anketa vs. kvíz se správnými odpověděmi**.
-- Doporučený stack (sekce 3): React + Vite + TS, Firebase (realtime),
-  `qrcode.react`, `react-router-dom`, Tailwind.
+- **Produktová rozhodnutí jsou hotová** (sekce 4): anketa **i** kvíz (přepínač per
+  otázka), **Google auth** (Firebase), **multi-tenant** (víc učitelů i sessions),
+  **perzistence + export**, **anonymita** jako nastavení session.
+- Stack potvrzen (sekce 3): React + Vite + TS, **Firebase (Firestore + Auth Google
+  + Hosting)**, `qrcode.react`, `react-router-dom`, Tailwind.
+- Konkrétní fázový plán je v **sekci 9**, datový model pro Firestore v **sekci 8**.
 
 ---
 
@@ -89,17 +91,34 @@ a hlavne **čisté funkce v `data.jsx`** (`emptyResults`, `applyVote`, `aggregat
 
 ---
 
-## 4. Otevřená produktová rozhodnutí (rozhodnout PRVNÍ)
+## 4. Produktová rozhodnutí — ROZHODNUTO (2026-06-23)
 
-1. **Anketa, nebo kvíz?** Prototyp **nemá** pojem správné odpovědi, bodů, žebříčku
-   ani časového limitu (= Mentimeter, ne Kahoot). Vzorové otázky ale míchají ankety
-   („Měli bychom psát test?“) s faktickými („Setřiďte planety“). Tohle mění datový
-   model i UI.
-2. **Autentizace učitele** — kdokoli s URL konzole teď řídí hlasování. Login / SSO?
-3. **Více souběžných tříd/sessions?** Více učitelů? Prototyp má 1 napevno daný PIN.
-4. **Perzistence a export** výsledků (CSV/PDF)? `prototype/index-print.html` naznačuje,
-   že tisk se počítá.
-5. **Anonymita** — smí být vidět jména hlasujících? Komu a kde? (souvisí s chybou #6)
+Všechny otevřené body ze sekce 4 jsou potvrzené uživatelem. Tato rozhodnutí
+řídí datový model (sekce 8) i plán (sekce 9).
+
+1. **Anketa i kvíz (přepínač per otázka).** Každá otázka má `mode: 'poll' | 'quiz'`.
+   - `poll` = klasická anketa bez správné odpovědi (chování prototypu).
+   - `quiz` = má **správnou odpověď**, **body**, volitelný **časový limit** a
+     **žebříček** (leaderboard). Kvíz zatím dává smysl u `yesno`, `choice`,
+     `order` (správné pořadí); u `scale/matrix/wordcloud/emoji` zůstává jen `poll`.
+2. **Autentizace učitele = Google (Firebase Auth).** Učitel se přihlašuje přes
+   Google účet; konzole je za auth guardem. Studenti se připojují přes PIN/QR
+   **bez přihlášení** (Firebase anonymous auth pro dedup hlasů).
+3. **Multi-tenant — více učitelů i více souběžných sessions.** Každá session
+   patří `teacherId` (uid), PIN se generuje dynamicky a je unikátní mezi
+   *aktivními* sessions. Jeden učitel může mít více sessions (běžící i archivní).
+4. **Perzistence + export.** Sessions, otázky a hlasy se ukládají do Firestore.
+   Učitel si může výsledky zobrazit zpětně a **exportovat (CSV, případně PDF/tisk
+   přes `index-print.html` předlohu)**.
+5. **Anonymita = nastavení session (administrace učitelem).**
+   - Učitel **vždy** vidí jména v konzoli.
+   - Přepínač `showNamesOnProjector` — jména viditelná i na projektoru.
+   - Přepínač `showNamesToStudents` — jména viditelná i ve studentském pohledu.
+   - Tím se zároveň opravuje matoucí přepínač „Se jmény“ (chyba #6).
+
+**Backend:** Firebase — **Firestore** (realtime `onSnapshot`) + **Firebase Auth**
+(Google) + **Firebase Hosting**. Autoritativní sčítání hlasů přes **Cloud
+Functions** (anti-cheat, dedup), MVP může počítat na klientovi z listeneru hlasů.
 
 ---
 
@@ -196,58 +215,147 @@ Pro školní (často veřejnou) aplikaci je to nutné dořešit.
 
 ---
 
-## 8. Návrh datového modelu (pro realtime backend)
+## 8. Datový model — Firestore (dle rozhodnutí sekce 4)
+
+Kolekce a dokumenty (cesty), realtime přes `onSnapshot`:
 
 ```
-Session {
-  pin: string            // přihlašovací kód (unikátní, krátký)
-  teacherId: string      // vlastník (po zavedení auth)
+users/{uid}                         // profil učitele (Google auth)
+  displayName, email, photoURL, createdAt
+
+sessions/{sessionId}
+  pin: string                       // unikátní mezi AKTIVNÍMI sessions
+  teacherId: string                 // = uid vlastníka
+  title: string
+  status: 'lobby' | 'live' | 'ended'
   activeQuestionId: string | null
   running: boolean
   activeEnded: boolean
-  showOnProjector, showToStudents, showNames, showJoinOnProjector: boolean
-  viewMode: Record<questionId, string>   // varianta vizualizace
+  showOnProjector: boolean          // odhalit výsledky na projektoru
+  showToStudents: boolean           // odhalit výsledky studentům
+  showNamesOnProjector: boolean     // anonymita — viz §4.5
+  showNamesToStudents: boolean      // anonymita — viz §4.5
+  showJoinOnProjector: boolean
+  viewMode: Record<questionId, string>   // varianta vizualizace (donut/bars…)
   createdAt, updatedAt
-}
-Question { id, type, q, ...typově specifické (options/rows/min/max/lo/hi/suggestions) }
-Vote     { sessionId, questionId, voter, payload, ts }   // 1 řádek = 1 hlas; dedup na (q, voter)
-Connection { sessionId, name, joinedAt }                 // připojení studenti
+
+sessions/{sessionId}/questions/{questionId}
+  type: 'yesno'|'choice'|'order'|'scale'|'matrix'|'wordcloud'|'emoji'
+  mode: 'poll' | 'quiz'             // §4.1
+  q: string
+  order: number                     // pořadí v knihovně
+  // typově specifické: options[] | rows[] | min,max,lo,hi | suggestions[]
+  // jen quiz: correctAnswer (dle typu), points: number, timeLimitSec?: number
+
+sessions/{sessionId}/votes/{voteId}        // 1 dok = 1 hlas
+  questionId, voterId, voterName, payload, ts
+  // dedup: voteId = `${questionId}__${voterId}` (1 hlas na otázku a hlasujícího)
+
+sessions/{sessionId}/participants/{voterId}
+  name, joinedAt, score             // score jen pro quiz
+
+sessions/{sessionId}/results/{questionId}  // (volitelné) agregace z Cloud Function
+  // tvar = výstup emptyResults()+applyVote(); jinak počítat na klientovi
 ```
-Sčítání (`emptyResults`/`applyVote`/`aggregateOrder`/`totalVoters`) běží
-**autoritativně na serveru** (anti-cheat, deduplikace), ne v klientovi.
+
+**Sčítání:** čisté funkce z `data.jsx` (`emptyResults`/`applyVote`/`aggregateOrder`/
+`totalVoters`) se přenesou do TS a po opravě chyb #1/#2 se použijí buď
+**autoritativně v Cloud Function** (trigger `onCreate` hlasu → zapíše `results/{qid}`;
+anti-cheat, dedup, žebříček quizu), nebo v MVP **na klientovi** z listeneru `votes`.
+
+**Bezpečnostní pravidla (Firestore rules) — záměr:**
+- `users/{uid}` — čte/píše jen vlastník.
+- `sessions/*` — plný zápis jen `teacherId`; veřejné čtení omezených polí podle PIN
+  pro studenty a projektor (čtení control-polí ano, zápis ne).
+- `votes` — vytvoření jen když `running && activeQuestionId == questionId`, právě
+  1 dok na `voterId+questionId` (vynuceno ID dokumentu), bez update/delete studentem.
+- `participants` — student smí vytvořit/aktualizovat jen svůj vlastní dokument.
 
 ---
 
-## 9. Plán implementace (fáze)
+## 9. Plán implementace (fáze) — KONKRÉTNÍ
 
-**Fáze 0 — Produktová rozhodnutí.** Vyřešit sekci 4 (hlavně anketa vs. kvíz) +
-volbu realtime backendu (sekce 3).
+Fáze 0 (produktová rozhodnutí) je **hotová** (sekce 4). Stack je potvrzen:
+**React 19 + Vite + TS + Tailwind + react-router-dom + Firebase (Firestore, Auth
+Google, Hosting) + qrcode.react**. Doporučené pořadí prací:
 
-**Fáze 1 — Architektura.**
-- Frontend: React + Vite + TS. Routy: `/` student, `/teacher`, `/projector/:pin`.
-  Přenést design tokeny z `prototype/styles.css` (do Tailwindu nebo CSS proměnných).
-- Realtime: **Firebase** (doporučeno) — Firestore/RTDB, session keyovaná PINem.
-  Hlasy sčítat autoritativně na serveru/cloud functions.
-- Datový model dle sekce 8.
+**Fáze 1 — Scaffolding + Firebase. ✅ HOTOVO (2026-06-23)**
+- ✅ Vite + React 19 + TS (kořen repa; prototyp zůstává v `prototype/`).
+- ✅ Tailwind v4 (`@tailwindcss/vite`); design tokeny portnuty do
+  `src/styles/tokens.css` jako CSS proměnné (`--hm-*`), vč. `.hm-dark` projektoru.
+- ✅ `react-router-dom`. Routy: `/` (join), `/s/:pin`, `/login`, `/teacher`,
+  `/teacher/:sessionId`, `/projector/:pin`, `*`. Kostry v `src/pages/`.
+- ✅ Firebase SDK init (`src/lib/firebase.ts`) z env (`.env.example`, `.env` v gitignore).
+- ✅ Draft `firestore.rules` + `firebase.json` (hosting → `dist`) + indexy.
+- ⏳ Založení reálného Firebase projektu (Firestore/Auth Google/Hosting) — udělá
+  uživatel, doplní `.env`.
 
-**Fáze 2 — Pixel-perfect port designu.** Přestavit komponenty jako reálné
-(TS, žádný in-browser Babel), zachovat vzhled. Vyhodit `tweaks-panel.jsx`, nápovědu
-s PINem, falešné QR.
+**Fáze 2 — Doménová logika + typy. ✅ HOTOVO (2026-06-23)**
+- ✅ Čisté funkce portnuty do `src/lib/voting.ts`, **opraveny chyby #1 a #2**
+  (wordcloud: hlas = pole slov, `voters` zvlášť; `totalVoters` = unikátní hlasující).
+- ✅ Typy `Question` (union vč. `mode: poll|quiz`), `Session`, `Vote`, `Participant`,
+  `Results` v `src/types.ts`. Metadata + vzorové otázky v `src/lib/questions.ts`.
+- ✅ Unit testy (`src/lib/voting.test.ts`, Vitest) — 10 testů, pokrývají opravy #1/#2.
 
-**Fáze 3 — Oprava chyb z auditu** (sekce 7), zvlášť #1, #2, #3, #10.
+**Fáze 3 — Auth učitele. ✅ HOTOVO (2026-06-23)**
+- ✅ Auth kontext `src/lib/auth.tsx` (`AuthProvider`, `useAuth`) — Google
+  `signInWithPopup`, `onAuthStateChanged`, odhlášení.
+- ✅ Po loginu upsert profilu do `users/{uid}` (`merge`).
+- ✅ Route guard `src/components/RequireAuth.tsx` na `/teacher/*` (redirect na
+  `/login`, návrat na původní routu).
+- ✅ `LoginPage` s Google tlačítkem; `TeacherDashboard` ukazuje uživatele + odhlášení.
+- 📄 Návod na nastavení Firebase projektu: `docs/FIREBASE_SETUP.md`.
 
-**Fáze 4 — Reálné funkce.** Reálné QR (`qrcode.react`) kódující `hlasomat.app/<pin>`,
-připojení přes URL+PIN, autentizace učitele, perzistence, export výsledků.
+**Fáze 4 — Datová vrstva Firestore.** CRUD sessions a otázek; generování unikátního
+PINu; realtime hooky (`useSession`, `useVotes` přes `onSnapshot`). Bezpečnostní
+pravidla dle sekce 8 + lokální emulátor. **Oprava #7** (úprava otázky maže hlasy
+jen při změně typu).
 
-**Fáze 5 — Přístupnost, mobil, hraniční stavy.** Klávesnice pro slider/řazení, ARIA,
-oznamování výsledků; `preventDefault` při dotyku; reconnection; velké třídy (30+);
-strop rozsahu škály; velmi dlouhá zadání.
+**Fáze 5 — Student flow.** Join přes PIN/QR; **reálné QR** (`qrcode.react`)
+kódující `…/s/<pin>`; anonymous auth → `voterId`; zápis hlasu + `participants`;
+dedup přes ID dokumentu. Port `student-widgets`/`student-view` do TS s **opravou
+#11** (touch `preventDefault` v `handleMove`) a **#3** (pauza nevyhazuje do čekárny,
+neresetuje `hasVoted`). Odstranit nápovědu s PINem. **Oprava #4, #5** (varianty +
+výsledky pro všech 7 typů).
 
-**Fáze 6 — Testy a nasazení.** Unit testy agregací, e2e test hlasovacího flow,
-zátěžový test souběžných hlasů, deploy.
+**Fáze 6 — Učitelská konzole.** Knihovna a editor otázek (port `question-editor`),
+řízení (spustit/pauza/ukončit), přepínače viditelnosti vč. **`showNamesOnProjector`
+/`showNamesToStudents`** (oprava #6). Potvrzení před smazáním hlasů (#7).
+Vyhodit `tweaks-panel.jsx`.
+
+**Fáze 7 — Projektor.** Realtime výsledky (port `projector-view`). **Oprava #10**
+(histogram = `max−min+1` sloupců, strop rozsahu škály) a **#12** (emoji mřížka dle
+počtu možností).
+
+**Fáze 8 — Kvíz režim.** `mode:'quiz'`: správné odpovědi, body, volitelný časový
+limit, žebříček (`participants.score`); UI v editoru, studentovi, na projektoru.
+
+**Fáze 9 — Autoritativní sčítání.** Cloud Function `onCreate` hlasu → `results/{qid}`
+(anti-cheat, dedup, skóre quizu). Pokud MVP počítal na klientovi, sem přesunout.
+
+**Fáze 10 — Perzistence + export.** Historie sessions na dashboardu; export výsledků
+**CSV** (a PDF/tisk přes předlohu `prototype/index-print.html`).
+
+**Fáze 11 — Přístupnost, mobil, hraniční stavy.** Klávesnice pro slider/řazení, ARIA,
+oznamování výsledků čtečce; reconnection; velké třídy (30+); dlouhá zadání; zbytky
+#13, #14.
+
+**Fáze 12 — Testy a nasazení.** Unit (agregace, rules), e2e hlasovacího flow,
+zátěžový test souběžných hlasů, deploy na Firebase Hosting.
 
 ---
 
 ## 10. Historie
 - **2026-06-23** — Audit prototypu + založení této paměti a samostatného repa
   Hlasomat. Prototyp je v `prototype/`. Implementace zatím nezačala.
+- **2026-06-23** — Potvrzena všechna produktová rozhodnutí (sekce 4): anketa
+  i kvíz (přepínač per otázka), Google auth, multi-tenant, perzistence + export,
+  anonymita jako nastavení session. Backend = Firebase/Firestore. Přepsán datový
+  model (sekce 8 → Firestore) a fázový plán (sekce 9 → konkrétní).
+- **2026-06-23** — **Fáze 1 + 2 hotové.** Scaffolding (Vite+React+TS+Tailwind+
+  Firebase init, role-routy, design tokeny) a doménová logika v TS (`voting.ts`
+  s opravou #1/#2, typy, 10 unit testů). `npm run typecheck`, `npm test` a
+  `npm run build` procházejí.
+- **2026-06-23** — **Fáze 3 hotová.** Google auth (`auth.tsx`, `RequireAuth`,
+  login, upsert `users/{uid}`), guard na `/teacher/*`. Návod `docs/FIREBASE_SETUP.md`.
+  Další na řadě: **Fáze 4 — datová vrstva Firestore (sessions, otázky, PIN, hooky).**

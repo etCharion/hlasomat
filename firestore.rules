@@ -1,0 +1,63 @@
+rules_version = '2';
+
+// Hlasomat — bezpečnostní pravidla (DRAFT, dle §8 MEMORY.md).
+// Dotáhne a otestuje Fáze 4 (emulátor). Princip: učitel (vlastník) řídí svou
+// session; studenti/projektor (anonymous auth) jen čtou veřejná pole a vytvářejí
+// vlastní hlas. Surovými hlasy se kvůli anonymitě nikam neexponuje — výsledky
+// se čtou z agregačního dokumentu results/{questionId} (zapisuje Cloud Function).
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(teacherId) {
+      return signedIn() && request.auth.uid == teacherId;
+    }
+    function sessionOwner(sessionId) {
+      return get(/databases/$(database)/documents/sessions/$(sessionId)).data.teacherId;
+    }
+
+    // Profil učitele — jen vlastník.
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /sessions/{sessionId} {
+      // Čtení session potřebují studenti i projektor (stav, viditelnost…).
+      allow read: if signedIn();
+      allow create: if isOwner(request.resource.data.teacherId);
+      allow update, delete: if isOwner(resource.data.teacherId);
+
+      // Otázky — čte kdokoli připojený, píše jen vlastník session.
+      match /questions/{questionId} {
+        allow read: if signedIn();
+        allow write: if isOwner(sessionOwner(sessionId));
+      }
+
+      // Hlasy — vytvoří student na sebe; 1 hlas na otázku (dedup přes ID
+      // dokumentu = questionId__voterId). Čte jen vlastník (anti-cheat/soukromí).
+      match /votes/{voteId} {
+        allow read: if isOwner(sessionOwner(sessionId));
+        allow create: if signedIn()
+          && request.resource.data.voterId == request.auth.uid
+          && voteId == request.resource.data.questionId + '__' + request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      // Připojení studenti — každý spravuje jen svůj záznam.
+      match /participants/{voterId} {
+        allow read: if isOwner(sessionOwner(sessionId));
+        allow create, update: if signedIn() && request.auth.uid == voterId;
+        allow delete: if false;
+      }
+
+      // Agregované výsledky — veřejné čtení, zápis jen server (admin SDK).
+      match /results/{questionId} {
+        allow read: if signedIn();
+        allow write: if false;
+      }
+    }
+  }
+}

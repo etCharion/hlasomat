@@ -1,0 +1,91 @@
+/* Hlasomat — design tokeny (port z prototype/styles.css). */
+
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500;600&display=swap');
+
+:root {
+  /* Brand */
+  --hm-ink: #0e0e15;
+  --hm-ink-2: #2a2a36;
+  --hm-muted: #6b6b78;
+  --hm-muted-2: #a8a8b2;
+  --hm-line: #e7e5df;
+  --hm-line-2: #efede7;
+  --hm-bg: #f5f2eb;
+  --hm-surface: #ffffff;
+  --hm-surface-2: #faf8f2;
+
+  --hm-primary: #5547ff;
+  --hm-primary-ink: #2a1fb8;
+  --hm-primary-soft: #e9e6ff;
+
+  --hm-accent: #ffb23b;
+  --hm-accent-soft: #ffe9c2;
+
+  --hm-success: #16a07a;
+  --hm-success-soft: #d6f0e4;
+  --hm-danger: #e5484d;
+  --hm-danger-soft: #fbd9da;
+
+  /* Type */
+  --hm-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --hm-body: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --hm-mono: 'Geist Mono', ui-monospace, monospace;
+
+  /* Radius */
+  --hm-r-sm: 10px;
+  --hm-r-md: 14px;
+  --hm-r-lg: 20px;
+  --hm-r-xl: 28px;
+  --hm-r-pill: 999px;
+
+  /* Shadow */
+  --hm-sh-1: 0 1px 0 rgba(14, 14, 21, 0.04), 0 1px 2px rgba(14, 14, 21, 0.05);
+  --hm-sh-2: 0 2px 0 rgba(14, 14, 21, 0.03), 0 8px 24px rgba(14, 14, 21, 0.06);
+  --hm-sh-3: 0 24px 48px -16px rgba(14, 14, 21, 0.18), 0 8px 16px -8px rgba(14, 14, 21, 0.08);
+}
+
+/* Tmavý projektor */
+.hm-dark {
+  --hm-ink: #f5f2eb;
+  --hm-ink-2: #d8d6ce;
+  --hm-muted: #8e8e9a;
+  --hm-muted-2: #5b5b66;
+  --hm-line: #25252d;
+  --hm-line-2: #1b1b22;
+  --hm-bg: #0e0e15;
+  --hm-surface: #15151d;
+  --hm-surface-2: #1b1b24;
+  --hm-primary-soft: #2a1fb8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+  background: var(--hm-bg);
+  color: var(--hm-ink);
+  font-family: var(--hm-body);
+  font-feature-settings: 'ss01' on, 'cv11' on;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+input,
+textarea,
+select {
+  font-family: inherit;
+  color: inherit;
+}
+:focus-visible {
+  outline: 2px solid var(--hm-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
