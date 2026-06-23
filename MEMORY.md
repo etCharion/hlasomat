@@ -279,20 +279,23 @@ Fáze 0 (produktová rozhodnutí) je **hotová** (sekce 4). Stack je potvrzen:
 **React 19 + Vite + TS + Tailwind + react-router-dom + Firebase (Firestore, Auth
 Google, Hosting) + qrcode.react**. Doporučené pořadí prací:
 
-**Fáze 1 — Scaffolding + Firebase.**
-- Vite + React + TS projekt (kořen repa, prototyp zůstává v `prototype/` jako
-  vizuální předloha). ESLint/Prettier.
-- Tailwind; design tokeny z `prototype/styles.css` přenést do `tailwind.config`
-  / CSS proměnných (`--hm-*`).
-- `react-router-dom`. Routy: `/` (join), `/s/:pin` (student), `/login`,
-  `/teacher` (dashboard), `/teacher/:sessionId` (konzole), `/projector/:pin`.
-- Inicializace Firebase SDK (`firebase.ts`), env proměnné (`.env`, `.gitignore`).
-  Založení Firebase projektu: Firestore, Auth (Google provider), Hosting.
+**Fáze 1 — Scaffolding + Firebase. ✅ HOTOVO (2026-06-23)**
+- ✅ Vite + React 19 + TS (kořen repa; prototyp zůstává v `prototype/`).
+- ✅ Tailwind v4 (`@tailwindcss/vite`); design tokeny portnuty do
+  `src/styles/tokens.css` jako CSS proměnné (`--hm-*`), vč. `.hm-dark` projektoru.
+- ✅ `react-router-dom`. Routy: `/` (join), `/s/:pin`, `/login`, `/teacher`,
+  `/teacher/:sessionId`, `/projector/:pin`, `*`. Kostry v `src/pages/`.
+- ✅ Firebase SDK init (`src/lib/firebase.ts`) z env (`.env.example`, `.env` v gitignore).
+- ✅ Draft `firestore.rules` + `firebase.json` (hosting → `dist`) + indexy.
+- ⏳ Založení reálného Firebase projektu (Firestore/Auth Google/Hosting) — udělá
+  uživatel, doplní `.env`.
 
-**Fáze 2 — Doménová logika + typy.** Přenést čisté funkce z `data.jsx` do
-`src/lib/voting.ts` jako TS, **rovnou opravit chyby #1 a #2** (wordcloud: iterovat
-pole slov; `totalVoters` počítat unikátní hlasující). Typy `Question`, `Session`,
-`Vote`, `Results` dle sekce 8. Unit testy agregací (Vitest).
+**Fáze 2 — Doménová logika + typy. ✅ HOTOVO (2026-06-23)**
+- ✅ Čisté funkce portnuty do `src/lib/voting.ts`, **opraveny chyby #1 a #2**
+  (wordcloud: hlas = pole slov, `voters` zvlášť; `totalVoters` = unikátní hlasující).
+- ✅ Typy `Question` (union vč. `mode: poll|quiz`), `Session`, `Vote`, `Participant`,
+  `Results` v `src/types.ts`. Metadata + vzorové otázky v `src/lib/questions.ts`.
+- ✅ Unit testy (`src/lib/voting.test.ts`, Vitest) — 10 testů, pokrývají opravy #1/#2.
 
 **Fáze 3 — Auth učitele.** Google sign-in (Firebase Auth), `/login`, route guard
 na `/teacher/*`, vytvoření/aktualizace `users/{uid}` po loginu.
@@ -342,4 +345,8 @@ zátěžový test souběžných hlasů, deploy na Firebase Hosting.
 - **2026-06-23** — Potvrzena všechna produktová rozhodnutí (sekce 4): anketa
   i kvíz (přepínač per otázka), Google auth, multi-tenant, perzistence + export,
   anonymita jako nastavení session. Backend = Firebase/Firestore. Přepsán datový
-  model (sekce 8 → Firestore) a fázový plán (sekce 9 → konkrétní). Kód zatím nezačal.
+  model (sekce 8 → Firestore) a fázový plán (sekce 9 → konkrétní).
+- **2026-06-23** — **Fáze 1 + 2 hotové.** Scaffolding (Vite+React+TS+Tailwind+
+  Firebase init, role-routy, design tokeny) a doménová logika v TS (`voting.ts`
+  s opravou #1/#2, typy, 10 unit testů). `npm run typecheck`, `npm test` a
+  `npm run build` procházejí. Další na řadě: **Fáze 3 — Google auth učitele.**
