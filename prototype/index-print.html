@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hlasomat — print</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    @page { size: A4 landscape; margin: 0; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .pg {
+      width: 297mm;
+      height: 209mm;
+      position: relative;
+      overflow: hidden;
+      background: var(--hm-bg, #FAF9F6);
+      break-after: page;
+      page-break-after: always;
+    }
+    .pg:last-child { break-after: auto; page-break-after: auto; }
+
+    .pg.flow {
+      height: auto;
+      min-height: 209mm;
+      overflow: visible;
+      display: block;
+    }
+    .pg.flow .pg-head {
+      position: static;
+      top: auto; left: auto; right: auto;
+      padding: 12mm 14mm 0;
+    }
+    .pg.flow .pg-foot { display: none; }
+    .pg.flow .flow-body { padding: 8mm 12mm 14mm; }
+    .pg.flow .hm-stage.teacher {
+      align-items: flex-start;
+      min-height: 0;
+      padding: 0;
+    }
+    .pg.flow .hm-teach { max-width: none; }
+    .pg.flow .hm-card,
+    .pg.flow .hm-active-card,
+    .pg.flow .hm-session-card,
+    .pg.flow .hm-bar-row,
+    .pg.flow .hm-lib-item { break-inside: avoid; }
+
+    .pg-head {
+      position: absolute;
+      top: 10mm; left: 14mm; right: 14mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: var(--hm-display, ui-sans-serif, system-ui);
+      z-index: 5;
+      pointer-events: none;
+    }
+    .pg-head .title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--hm-ink, #14141B);
+      letter-spacing: -0.01em;
+    }
+    .pg-head .title .mark {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 3px;
+      background: var(--hm-primary, #5547FF);
+      margin-right: 8px;
+      vertical-align: middle;
+      transform: translateY(-1px);
+    }
+    .pg-head .crumb {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--hm-muted, #7A7A85);
+    }
+    .pg-head .crumb b { color: var(--hm-ink, #14141B); font-weight: 600; }
+
+    .pg.dark .pg-head .title { color: #F5F2EB; }
+    .pg.dark .pg-head .crumb { color: rgba(245,242,235,.55); }
+    .pg.dark .pg-head .crumb b { color: #fff; }
+
+    .stage-wrap {
+      position: absolute;
+      top: 22mm; left: 0; right: 0; bottom: 10mm;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+    }
+    .stage-canvas {
+      transform-origin: top center;
+      flex-shrink: 0;
+    }
+
+    .pg-foot {
+      position: absolute;
+      left: 14mm; right: 14mm; bottom: 6mm;
+      display: flex; justify-content: space-between;
+      font-family: var(--hm-mono, ui-monospace, monospace);
+      font-size: 9.5px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--hm-muted, #9090A0);
+      z-index: 5;
+    }
+    .pg.dark .pg-foot { color: rgba(245,242,235,.45); }
+
+    .phones {
+      display: flex;
+      gap: 48px;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    .phones .col { width: 360px; flex-shrink: 0; }
+    .phones .hm-phone { max-width: 360px; }
+    .phone-cap {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--hm-muted, #7A7A85);
+      margin-top: 10px;
+    }
+
+    .pg *, .pg *::before, .pg *::after {
+      animation-duration: 0s !important;
+      animation-delay: 0s !important;
+      transition-duration: 0s !important;
+    }
+
+    .proj-canvas {
+      width: 1600px;
+      height: 900px;
+      background: #0B0B12;
+      color: #F5F2EB;
+      position: relative;
+      overflow: hidden;
+    }
+    .proj-canvas .hm-stage.projector { min-height: 0; height: 100%; }
+
+    .teacher-canvas {
+      width: 1400px;
+      background: var(--hm-bg);
+      color: var(--hm-ink);
+      padding: 0;
+    }
+
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 30mm;
+      background:
+        radial-gradient(circle at 15% 20%, rgba(85,71,255,.10) 0%, transparent 50%),
+        radial-gradient(circle at 88% 88%, rgba(255,178,59,.10) 0%, transparent 50%),
+        #FAF9F6;
+    }
+    .cover .logo {
+      display: inline-flex; align-items: center; gap: 14px;
+      font-family: var(--hm-display, ui-sans-serif, system-ui);
+      font-size: 22px; font-weight: 600;
+      color: #14141B;
+    }
+    .cover .logo .mark {
+      width: 44px; height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #5547FF, #8B7CFF);
+      color: #fff;
+      display: grid; place-items: center;
+      font-size: 22px; font-weight: 700;
+      box-shadow: 0 20px 40px -20px rgba(85,71,255,.6);
+    }
+    .cover h1 {
+      font-family: var(--hm-display, ui-sans-serif, system-ui);
+      font-size: 72px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      margin: 40px 0 18px;
+      line-height: 1;
+      color: #14141B;
+    }
+    .cover .sub {
+      font-size: 22px;
+      color: #5A5A66;
+      max-width: 640px;
+      line-height: 1.45;
+      margin-bottom: 36px;
+    }
+    .cover .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      max-width: 760px;
+      margin-top: 14px;
+    }
+    .cover .meta-grid .cell {
+      border-top: 2px solid #14141B;
+      padding-top: 12px;
+    }
+    .cover .meta-grid .cell .label {
+      font-size: 10px; font-weight: 600; letter-spacing: .18em;
+      text-transform: uppercase;
+      color: #9090A0;
+      margin-bottom: 6px;
+    }
+    .cover .meta-grid .cell .val {
+      font-family: var(--hm-mono, ui-monospace, monospace);
+      font-size: 16px; font-weight: 600;
+      color: #14141B;
+    }
+
+    .stage-canvas .hm-topbar { display: none !important; }
+    .stage-canvas .hm-app { min-height: 0 !important; }
+  </style>
+</head>
+<body>
+  <div id="root" style="display:none"></div>
+  <div id="print-root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="data.jsx"></script>
+  <script type="text/babel" src="student-widgets.jsx"></script>
+  <script type="text/babel" src="student-view.jsx"></script>
+  <script type="text/babel" src="question-editor.jsx"></script>
+  <script type="text/babel" src="teacher-view.jsx"></script>
+  <script type="text/babel" src="projector-view.jsx"></script>
+  <script type="text/babel" src="app.jsx"></script>
+
+  <script type="text/babel" data-presets="env,react">
+    const { useLayoutEffect, useRef, useState, useEffect } = React;
+
+    function seededSession() {
+      const base = makeInitialSession();
+      const wc = base.questions.find(q => q.type === 'wordcloud') || base.questions[0];
+      const choice = base.questions.find(q => q.type === 'choice');
+
+      const words = {
+        'umění': 9, 'Leonardo': 7, 'Itálie': 6, 'znovuzrození': 5,
+        'Mona Lisa': 4, 'Michelangelo': 4, 'Florencie': 3, 'perspektiva': 3,
+        'obrazy': 3, 'harmonie': 2, 'sochy': 2, 'světlo': 2,
+        'poznání': 2, 'barvy': 1, 'David': 1, 'humanismus': 1,
+      };
+      const results = { ...base.results };
+      results[wc.id] = { words, totalSubmissions: 18 };
+
+      if (choice) {
+        const cr = {};
+        choice.options.forEach((_, i) => { cr[i] = 0; });
+        cr[0] = 8; cr[1] = 4; cr[2] = 11; cr[3] = 3;
+        results[choice.id] = cr;
+      }
+
+      const voters = base.connected;
+      const votes = { ...base.votes };
+      votes[wc.id] = voters.slice(0, 18).map((n, i) => ({
+        name: n, vote: Object.keys(words)[i % Object.keys(words).length], ts: Date.now() - i*1000
+      }));
+
+      return {
+        ...base,
+        activeId: wc.id,
+        running: true,
+        activeEnded: false,
+        showOnProjector: true,
+        showToStudents: false,
+        showNames: false,
+        showJoinOnProjector: true,
+        viewMode: { [wc.id]: 'cloud' },
+        results,
+        votes,
+      };
+    }
+
+    function StaticController() {
+      const noop = () => {};
+      return {
+        selectQuestion: noop, startVoting: noop, pause: noop, resume: noop,
+        end: noop, deselect: noop,
+        setShowOnProjector: noop, setShowToStudents: noop, setShowNames: noop,
+        setShowJoinOnProjector: noop, setViewMode: noop,
+        submitVote: noop, botVote: noop, studentConnect: noop,
+        addQuestion: noop, updateQuestion: noop, deleteQuestion: noop,
+        moveQuestion: noop, openEdit: noop,
+      };
+    }
+
+    function ScaleFit({ width, height, children }) {
+      const wrapRef = useRef(null);
+      const [s, setS] = useState(1);
+      useLayoutEffect(() => {
+        if (!wrapRef.current) return;
+        const measure = () => {
+          const r = wrapRef.current.getBoundingClientRect();
+          const sw = r.width / width;
+          const sh = height ? r.height / height : Infinity;
+          setS(Math.min(sw, sh));
+        };
+        measure();
+        const ro = new ResizeObserver(measure);
+        ro.observe(wrapRef.current);
+        return () => ro.disconnect();
+      }, [width, height]);
+      return (
+        <div ref={wrapRef} className="stage-wrap">
+          <div
+            className="stage-canvas"
+            style={{ width, height: height || 'auto', transform: `scale(${s})` }}
+          >
+            {children}
+          </div>
+        </div>
+      );
+    }
+
+    function CoverPage({ session }) {
+      const wc = session.questions.find(q => q.id === session.activeId);
+      const date = new Date().toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' });
+      return (
+        <div className="pg cover">
+          <div className="cover">
+            <div className="logo">
+              <span className="mark">H</span>
+              Hlasomat
+            </div>
+            <h1>Hlasomat<br/><span style={{ color: '#5547FF' }}>—</span> přehled rozhraní</h1>
+            <div className="sub">
+              Školní hlasovací aplikace — tři pohledy: učitelská konzole, studentský telefon
+              a projekce ve třídě. Tento dokument shrnuje aktuální stav prototypu.
+            </div>
+            <div className="meta-grid">
+              <div className="cell">
+                <div className="label">Datum</div>
+                <div className="val">{date}</div>
+              </div>
+              <div className="cell">
+                <div className="label">Kód relace</div>
+                <div className="val">{session.pin}</div>
+              </div>
+              <div className="cell">
+                <div className="label">Aktivní otázka</div>
+                <div className="val">{wc ? wc.q.slice(0, 32) + (wc.q.length > 32 ? '…' : '') : '—'}</div>
+              </div>
+            </div>
+          </div>
+          <div className="pg-foot">
+            <span>Hlasomat · interní</span>
+            <span>0 / 3</span>
+          </div>
+        </div>
+      );
+    }
+
+    function TeacherPage({ session, controller }) {
+      return (
+        <div className="pg flow">
+          <div className="pg-head">
+            <div className="title"><span className="mark"/>Hlasomat</div>
+            <div className="crumb"><b>Učitelská konzole</b> · živé hlasování</div>
+          </div>
+          <div className="flow-body">
+            <TeacherView session={session} controller={controller}/>
+          </div>
+        </div>
+      );
+    }
+
+    function ProjectorPage({ session }) {
+      return (
+        <div className="pg dark">
+          <div className="pg-head">
+            <div className="title"><span className="mark"/>Hlasomat</div>
+            <div className="crumb"><b>Projekce ve třídě</b> · 16:9</div>
+          </div>
+          <ScaleFit width={1600} height={900}>
+            <div className="proj-canvas">
+              <ProjectorView session={session}/>
+            </div>
+          </ScaleFit>
+          <div className="pg-foot">
+            <span>Pohled 2 — Projektor</span>
+            <span>2 / 3</span>
+          </div>
+        </div>
+      );
+    }
+
+    function StudentPhone({ children }) {
+      return (
+        <div className="hm-phone">
+          <PhoneStatusBar/>
+          <div className="hm-phone-body">{children}</div>
+          <div className="hm-phone-home"/>
+        </div>
+      );
+    }
+
+    function StudentPage({ session }) {
+      const wc = session.questions.find(q => q.id === session.activeId);
+      const r = session.results[session.activeId];
+      return (
+        <div className="pg">
+          <div className="pg-head">
+            <div className="title"><span className="mark"/>Hlasomat</div>
+            <div className="crumb"><b>Studentský telefon</b> · hlasování a potvrzení</div>
+          </div>
+          <ScaleFit width={792} height={780}>
+            <div className="phones">
+              <div className="col">
+                <StudentPhone>
+                  <StudentVotingScreen
+                    question={wc}
+                    onSubmit={() => {}}
+                    voteCount={12}
+                    totalConnected={session.connected.length}/>
+                </StudentPhone>
+                <div className="phone-cap">Hlasování</div>
+              </div>
+              <div className="col">
+                <StudentPhone>
+                  <StudentVoted
+                    question={wc}
+                    results={r}
+                    showResults={false}/>
+                </StudentPhone>
+                <div className="phone-cap">Po odeslaní</div>
+              </div>
+            </div>
+          </ScaleFit>
+          <div className="pg-foot">
+            <span>Pohled 3 — Student</span>
+            <span>3 / 3</span>
+          </div>
+        </div>
+      );
+    }
+
+    function PrintApp() {
+      const [session] = useState(() => seededSession());
+      const controller = React.useMemo(() => StaticController(), []);
+
+      useEffect(() => {
+        document.documentElement.style.setProperty('--hm-primary', '#5547FF');
+        document.documentElement.style.setProperty('--hm-accent', '#FFB23B');
+      }, []);
+
+      return (
+        <React.Fragment>
+          <CoverPage session={session}/>
+          <TeacherPage session={session} controller={controller}/>
+          <ProjectorPage session={session}/>
+          <StudentPage session={session}/>
+        </React.Fragment>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('print-root')).render(<PrintApp/>);
+
+    (function autoPrint() {
+      let done = false;
+      const go = () => {
+        if (done) return;
+        done = true;
+        setTimeout(() => window.print(), 600);
+      };
+      const ready = document.fonts && document.fonts.ready
+        ? document.fonts.ready
+        : Promise.resolve();
+      ready.then(() => {
+        requestAnimationFrame(() => requestAnimationFrame(go));
+      });
+      setTimeout(go, 2500);
+    })();
+  </script>
+</body>
+</html>
