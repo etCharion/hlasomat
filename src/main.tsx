@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import './index.css';
+import { AuthProvider } from './lib/auth';
+import RequireAuth from './components/RequireAuth';
 import JoinPage from './pages/JoinPage';
 import StudentPage from './pages/StudentPage';
 import LoginPage from './pages/LoginPage';
@@ -14,14 +16,30 @@ const router = createBrowserRouter([
   { path: '/', element: <JoinPage /> },
   { path: '/s/:pin', element: <StudentPage /> },
   { path: '/login', element: <LoginPage /> },
-  { path: '/teacher', element: <TeacherDashboard /> },
-  { path: '/teacher/:sessionId', element: <TeacherConsole /> },
+  {
+    path: '/teacher',
+    element: (
+      <RequireAuth>
+        <TeacherDashboard />
+      </RequireAuth>
+    ),
+  },
+  {
+    path: '/teacher/:sessionId',
+    element: (
+      <RequireAuth>
+        <TeacherConsole />
+      </RequireAuth>
+    ),
+  },
   { path: '/projector/:pin', element: <ProjectorPage /> },
   { path: '*', element: <NotFoundPage /> },
 ]);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   </StrictMode>,
 );

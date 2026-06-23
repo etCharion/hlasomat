@@ -297,8 +297,14 @@ Google, Hosting) + qrcode.react**. Doporučené pořadí prací:
   `Results` v `src/types.ts`. Metadata + vzorové otázky v `src/lib/questions.ts`.
 - ✅ Unit testy (`src/lib/voting.test.ts`, Vitest) — 10 testů, pokrývají opravy #1/#2.
 
-**Fáze 3 — Auth učitele.** Google sign-in (Firebase Auth), `/login`, route guard
-na `/teacher/*`, vytvoření/aktualizace `users/{uid}` po loginu.
+**Fáze 3 — Auth učitele. ✅ HOTOVO (2026-06-23)**
+- ✅ Auth kontext `src/lib/auth.tsx` (`AuthProvider`, `useAuth`) — Google
+  `signInWithPopup`, `onAuthStateChanged`, odhlášení.
+- ✅ Po loginu upsert profilu do `users/{uid}` (`merge`).
+- ✅ Route guard `src/components/RequireAuth.tsx` na `/teacher/*` (redirect na
+  `/login`, návrat na původní routu).
+- ✅ `LoginPage` s Google tlačítkem; `TeacherDashboard` ukazuje uživatele + odhlášení.
+- 📄 Návod na nastavení Firebase projektu: `docs/FIREBASE_SETUP.md`.
 
 **Fáze 4 — Datová vrstva Firestore.** CRUD sessions a otázek; generování unikátního
 PINu; realtime hooky (`useSession`, `useVotes` přes `onSnapshot`). Bezpečnostní
@@ -349,4 +355,7 @@ zátěžový test souběžných hlasů, deploy na Firebase Hosting.
 - **2026-06-23** — **Fáze 1 + 2 hotové.** Scaffolding (Vite+React+TS+Tailwind+
   Firebase init, role-routy, design tokeny) a doménová logika v TS (`voting.ts`
   s opravou #1/#2, typy, 10 unit testů). `npm run typecheck`, `npm test` a
-  `npm run build` procházejí. Další na řadě: **Fáze 3 — Google auth učitele.**
+  `npm run build` procházejí.
+- **2026-06-23** — **Fáze 3 hotová.** Google auth (`auth.tsx`, `RequireAuth`,
+  login, upsert `users/{uid}`), guard na `/teacher/*`. Návod `docs/FIREBASE_SETUP.md`.
+  Další na řadě: **Fáze 4 — datová vrstva Firestore (sessions, otázky, PIN, hooky).**
